@@ -16,7 +16,7 @@ function App() {
   // Simulate EEG data - in real implementation, this would come from EEG device
   useEffect(() => {
     const interval = setInterval(() => {
-      const states = ['happy', 'neutral', 'calm', 'excited', 'focused']
+      const states = ['happy', 'neutral', 'sad']
       const randomState = states[Math.floor(Math.random() * states.length)]
       setEmotionalState(randomState)
     }, 5000) // Update every 5 seconds
@@ -111,8 +111,8 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>AI Conversation Assistant</h1>
-        <p>Real-time conversation with AI-powered response suggestions</p>
+        <h1>Why waste time say lot word when few word do trick?</h1>
+        <p>Real-time conversation assistant with AI-powered response suggestions and emotional state analysis</p>
       </header>
 
       <div className="app-content">

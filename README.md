@@ -73,10 +73,3 @@ ELEVENLABS_VOICE_ID=your_voice_id
 - CORS is configured for development
 - Use ngrok for microphone access in production
 
-## Hackathon Notes
-
-- 24-hour development timeline
-- Lava Payments integration for OpenAI API calls
-- EEG emotional state simulation
-- Real-time conversation flow
-- Sentiment-based response generation
