@@ -216,6 +216,22 @@ function App() {
         </div>
       </header>
 
+      <button
+        onClick={() => window.open('/voices', '_blank')}
+        style={{
+          marginTop: '10px',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          backgroundColor: '#007bff',
+          color: 'white',
+          border: 'none',
+          cursor: 'pointer'
+        }}
+      >
+        🎙️ Open Voice Dashboard
+      </button>
+
+
       <div className="app-content">
         <div className="left-panel">
           <EmotionalStateDisplay emotionalState={emotionalState} />
