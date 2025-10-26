@@ -75,6 +75,13 @@ async def generate_responses(request: Request):
         user_keywords = body.get("user_keywords", "")
         previous_conversation = body.get("previous_conversation", "")
         emotional_state = body.get("emotional_state", "neutral")
+        personality_type = body.get("personality_type", "")
+        personality_description = body.get("personality_description", "")
+        
+        # Build personality context
+        personality_context = ""
+        if personality_type and personality_description:
+            personality_context = f"\nUser's Personality: {personality_type} - {personality_description}"
         
         prompt = f"""
 You are an empathetic conversational assistant that helps the user decide what to say next in an ongoing dialogue.
@@ -83,19 +90,25 @@ Your goal is to generate three possible user responses that:
 1. Are coherent and contextually appropriate given the previous conversation.
 2. Use the user_keywords in the responses naturally.
 3. Reflect the user's current emotional_state.
-4. Differ clearly in tone: calm, neutral, and excited.
+4. Match the user's personality type and communication style.
+5. Differ clearly in tone: calm, neutral, and excited.
 
 Inputs:
 user_keywords = '{user_keywords}'
 previous_conversation = '''{previous_conversation}'''
-emotional_state = '{emotional_state}'
+emotional_state = '{emotional_state}'{personality_context}
 
 Instructions:
 - You must output a valid JSON object with exactly three keys: "calm", "neutral", and "excited".
 - Each value must be one complete, coherent sentence the user might say next.
-- Use the conversation and emotional_state to guide tone, but keep content logically grounded in the prior context and user keywords.
+- Use the conversation, emotional_state, and personality type to guide tone and communication style.
+- For example:
+  * ESTJ (Executive): Direct, organized, goal-oriented responses
+  * ENFP (Campaigner): Enthusiastic, creative, people-focused responses  
+  * INTJ (Architect): Strategic, analytical, future-focused responses
+  * ISFP (Adventurer): Gentle, value-driven, personal responses
+- Keep content logically grounded in the prior context and user keywords.
 - Do not include explanations, extra text, or formatting outside the JSON.
-
 
 Now produce your JSON response:
 """
@@ -186,3 +199,28 @@ async def text_to_speech(text: str = Form(...), sentiment: str = Form("neutral")
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Add to your /Users/maggiedong/Desktop/projects/few-word-do-trick/frontend/src/App.css
+
+.personality-display {
+  background: linear-gradient(135deg, #9b59b6 0%, #e74c3c 100%);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 25px;
+  margin: 15px 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+}
+
+.personality-display span {
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .personality-display {
+    font-size: 12px;
+    padding: 8px 15px;
+  }
+}
