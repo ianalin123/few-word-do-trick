@@ -235,7 +235,7 @@ async def main():
     websocket = await connect_to_websocket()
     if not websocket:
         print("\nPlease ensure the backend server is running:")
-        print("  cd backend && python app.py")
+        print("  cd backend && python main.py")
         return
 
     # Wait for welcome message

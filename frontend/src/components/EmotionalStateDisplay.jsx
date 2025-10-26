@@ -13,7 +13,7 @@ const EmotionalStateDisplay = ({ emotionalState }) => {
   const getDescription = (state) => {
     const descriptions = {
       happy: 'Kevin is feeling great!',
-      neutral: 'Kevin is just chillin\'',
+      neutral: 'Waiting for EEG data...',
       sad: 'Kevin is having a rough day'
     }
     return descriptions[state] || 'Kevin is... Kevin'
@@ -22,7 +22,7 @@ const EmotionalStateDisplay = ({ emotionalState }) => {
   const getKevinQuote = (state) => {
     const quotes = {
       happy: '"I have very little patience for stupidity."',
-      neutral: '"I work hard, I play hard."',
+      neutral: '"Why waste time say lot word when few word do trick?"',
       sad: '"I just want to sit on the beach and eat hot dogs."'
     }
     return quotes[state] || '"I am Kevin Malone."'
