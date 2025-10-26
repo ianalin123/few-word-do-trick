@@ -90,7 +90,7 @@ Your goal is to generate three possible user responses that:
 1. Are coherent and contextually appropriate given the previous conversation.
 2. Use the user_keywords in the responses naturally.
 3. Reflect the user's current emotional_state.
-4. Match the user's personality type and communication style.
+4. Match the user's personality type and communication style (if provided).
 5. Differ clearly in tone: calm, neutral, and excited.
 
 Inputs:
@@ -102,13 +102,19 @@ Instructions:
 - You must output a valid JSON object with exactly three keys: "calm", "neutral", and "excited".
 - Each value must be one complete, coherent sentence the user might say next.
 - Use the conversation, emotional_state, and personality type to guide tone and communication style.
-- For example:
+- If no personality type is provided, generate responses that are universally appropriate.
+- For personality types:
   * ESTJ (Executive): Direct, organized, goal-oriented responses
   * ENFP (Campaigner): Enthusiastic, creative, people-focused responses  
   * INTJ (Architect): Strategic, analytical, future-focused responses
   * ISFP (Adventurer): Gentle, value-driven, personal responses
-- Keep content logically grounded in the prior context and user keywords.
+  * And similar adaptations for other MBTI types
+- Keep responses conversational and natural, not robotic.
+- Ensure each response incorporates the user_keywords organically.
 - Do not include explanations, extra text, or formatting outside the JSON.
+
+Example output format:
+{{"calm": "I think we should...", "neutral": "That makes sense...", "excited": "This is amazing because..."}}
 
 Now produce your JSON response:
 """
