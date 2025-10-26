@@ -142,7 +142,11 @@ async def speech_to_text(audio_file: UploadFile = File(...)):
             
     except httpx.HTTPStatusError as e:
         detail = f"Lava/OpenAI API error {e.response.status_code}: {e.response.text}"
-        print(detail)
+        print(f"❌ Speech-to-text error: {detail}")
+        raise HTTPException(status_code=500, detail=detail)
+    except Exception as e:
+        detail = f"Speech-to-text error: {str(e)}"
+        print(f"❌ {detail}")
         raise HTTPException(status_code=500, detail=detail)
 
 @app.post("/api/generate-responses")
@@ -219,8 +223,14 @@ Now produce your JSON response:
                     "excited": lines[2] if len(lines) > 2 else "That sounds great!"
                 }
             
+    except httpx.HTTPStatusError as e:
+        error_detail = f"Lava API error {e.response.status_code}: {e.response.text}"
+        print(f"❌ Generate responses error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Response generation failed: {str(e)}")
+        error_detail = f"Response generation failed: {str(e)}"
+        print(f"❌ Generate responses error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 @app.post("/api/text-to-speech")
 async def text_to_speech(text: str = Form(...), sentiment: str = Form("neutral")):
