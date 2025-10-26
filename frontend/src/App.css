@@ -445,7 +445,52 @@
   background: linear-gradient(135deg, #fecaca 0%, #fde68a 100%);
 }
 
-/* Responsive Design */
+/* Header Actions */
+.header-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.clear-btn {
+  background: #ff6b6b;
+  color: white;
+}
+
+.clear-btn:hover {
+  background: #ff5252;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
+}
+
+.feedback-btn {
+  background: #3980cc;
+  color: white;
+}
+
+.feedback-btn:hover {
+  background: #45b7aa;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(78, 205, 196, 0.3);
+}
+
 @media (max-width: 768px) {
   .app-content {
     flex-direction: column;
@@ -483,5 +528,14 @@
   .conversation {
     transform: none;
     box-shadow: none;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .action-button {
+    width: 200px;
   }
 }

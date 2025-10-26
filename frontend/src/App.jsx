@@ -4,6 +4,7 @@ import ConversationDisplay from './components/ConversationDisplay'
 import ResponseSelector from './components/ResponseSelector'
 import EmotionalStateDisplay from './components/EmotionalStateDisplay'
 import KeywordInput from './components/KeywordInput'
+import FeedbackModal from './components/FeedbackModal'
 import './App.css'
 
 function App() {
@@ -12,6 +13,11 @@ function App() {
   const [userKeywords, setUserKeywords] = useState('')
   const [generatedResponses, setGeneratedResponses] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  
+  // Add personality state
+  const [personalityType, setPersonalityType] = useState('')
+  const [personalityDescription, setPersonalityDescription] = useState('')
 
   // Connect to WebSocket for live emotion updates from EEG
   useEffect(() => {
@@ -111,7 +117,9 @@ function App() {
         body: JSON.stringify({
           user_keywords: userKeywords,
           previous_conversation: conversationText,
-          emotional_state: emotionalState
+          emotional_state: emotionalState,
+          personality_type: personalityType, // Send personality type
+          personality_description: personalityDescription // Send description
         })
       })
 
@@ -127,6 +135,12 @@ function App() {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  // Add function to handle personality results from quiz
+  const handlePersonalityResult = (type, description) => {
+    setPersonalityType(type)
+    setPersonalityDescription(description)
   }
 
   const handleResponseSelect = async (response, sentiment) => {
@@ -165,11 +179,41 @@ function App() {
     setUserKeywords('')
   }
 
+  const clearConversation = () => {
+    setConversation([])
+    setGeneratedResponses(null)
+    setUserKeywords('')
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>Why waste time say lot word when few word do trick?</h1>
         <p>Real-time conversation assistant with AI-powered response suggestions and emotional state analysis</p>
+        
+        {/* Show personality info if available */}
+        {personalityType && (
+          <div className="personality-display">
+            <span>🧠 Your Type: {personalityType} - {personalityDescription}</span>
+          </div>
+        )}
+        
+        <div className="header-actions">
+          <button 
+            className="action-button clear-btn"
+            onClick={clearConversation}
+            title="Clear conversation and start fresh"
+          >
+            🗑️ Clear All
+          </button>
+          <button 
+            className="action-button feedback-btn"
+            onClick={() => setShowFeedbackModal(true)}
+            title="Take a personality quiz"
+          >
+            🧠 Personality Quiz
+          </button>
+        </div>
       </header>
 
       <div className="app-content">
@@ -196,6 +240,14 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Updated Feedback Modal */}
+      {showFeedbackModal && (
+        <FeedbackModal 
+          onClose={() => setShowFeedbackModal(false)}
+          onPersonalityResult={handlePersonalityResult}
+        />
+      )}
     </div>
   )
 }
