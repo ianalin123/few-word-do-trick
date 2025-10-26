@@ -1,3 +1,6 @@
+.env
+/backend/venv/
+/frontend/node_modules/
 # Environment variables
 .env
 .env.local

@@ -13,15 +13,72 @@ function App() {
   const [generatedResponses, setGeneratedResponses] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Simulate EEG data - in real implementation, this would come from EEG device
+  // Connect to WebSocket for live emotion updates from EEG
   useEffect(() => {
-    const interval = setInterval(() => {
-      const states = ['happy', 'neutral', 'sad']
-      const randomState = states[Math.floor(Math.random() * states.length)]
-      setEmotionalState(randomState)
-    }, 5000) // Update every 5 seconds
+    let ws = null
+    let reconnectTimer = null
+    let isUnmounting = false
 
-    return () => clearInterval(interval)
+    const connectWebSocket = () => {
+      if (isUnmounting) return
+
+      try {
+        ws = new WebSocket('ws://localhost:8000/ws/emotions')
+
+        ws.onopen = () => {
+          console.log('✓ Connected to emotion stream')
+          // Send a ping to keep connection alive
+          ws.send('ping')
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 Frontend received:', data)
+
+            if (data.type === 'emotion_update') {
+              console.log(`🎭 UPDATING KEVIN TO: ${data.emotion.toUpperCase()} (${(data.confidence * 100).toFixed(1)}%)`)
+              setEmotionalState(data.emotion)
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error)
+          }
+        }
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error - is backend running?', error)
+        }
+
+        ws.onclose = () => {
+          console.log('Disconnected from emotion stream')
+
+          // Attempt to reconnect after 3 seconds if not unmounting
+          if (!isUnmounting) {
+            console.log('Will attempt to reconnect in 3 seconds...')
+            reconnectTimer = setTimeout(connectWebSocket, 3000)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create WebSocket:', error)
+        if (!isUnmounting) {
+          reconnectTimer = setTimeout(connectWebSocket, 3000)
+        }
+      }
+    }
+
+    // Initial connection
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      isUnmounting = true
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close()
+      }
+    }
   }, [])
 
   const handleAudioTranscription = (transcription) => {
