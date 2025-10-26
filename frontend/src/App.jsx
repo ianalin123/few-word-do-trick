@@ -7,6 +7,16 @@ import KeywordInput from './components/KeywordInput'
 import FeedbackModal from './components/FeedbackModal'
 import './App.css'
 
+// Get or create a unique user ID
+function getUserId() {
+  let userId = localStorage.getItem('user_id')
+  if (!userId) {
+    userId = 'user_' + Math.random().toString(36).substring(2, 15)
+    localStorage.setItem('user_id', userId)
+  }
+  return userId
+}
+
 function App() {
   const [conversation, setConversation] = useState([])
   const [emotionalState, setEmotionalState] = useState('neutral')
@@ -143,7 +153,7 @@ function App() {
     setPersonalityDescription(description)
   }
 
-  const handleResponseSelect = async (response, sentiment) => {
+  const handleResponseSelect = async (response, energy) => {  // Changed 'sentiment' to 'energy'
     // Add user's selected response to conversation
     const userMessage = {
       id: Date.now(),
@@ -153,27 +163,37 @@ function App() {
     }
     setConversation(prev => [...prev, userMessage])
 
-    // Play text-to-speech
+    // Play text-to-speech with energy level and emotional state
     try {
+      const userId = getUserId()
       const formData = new FormData()
       formData.append('text', response)
-      formData.append('sentiment', sentiment)
+      formData.append('energy', energy)                          // NEW: low/medium/high/contradictory
+      formData.append('emotional_state', emotionalState)         // NEW: happy/sad from EEG
+      formData.append('user_id', userId)                         // NEW: user ID for voice preference
+
+      console.log(`🎤 TTS: energy=${energy}, emotion=${emotionalState}, user=${userId}`)
 
       const response_audio = await fetch('/api/text-to-speech', {
         method: 'POST',
         body: formData
       })
-
+  
       if (response_audio.ok) {
         const audioBlob = await response_audio.blob()
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         audio.play()
+        
+        // Clean up URL after audio finishes
+        audio.onended = () => URL.revokeObjectURL(audioUrl)
+      } else {
+        console.error('TTS failed:', await response_audio.text())
       }
     } catch (error) {
       console.error('Error playing audio:', error)
     }
-
+  
     // Clear generated responses
     setGeneratedResponses(null)
     setUserKeywords('')
@@ -228,7 +248,7 @@ function App() {
           cursor: 'pointer'
         }}
       >
-        🎙️ Open Voice Dashboard
+        🎙️ Voice Dashboard (Voice Selection & Settings)
       </button>
 
 
@@ -250,8 +270,9 @@ function App() {
           />
           {generatedResponses && (
             <ResponseSelector 
-              responses={generatedResponses}
+              responses={generatedResponses} 
               onSelect={handleResponseSelect}
+              emotionalState={emotionalState}  // Add this prop
             />
           )}
         </div>
