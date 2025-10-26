@@ -4,31 +4,32 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(14, 14, 14, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(10px);
 }
 
 .modal-content {
-  background: white;
+  background: linear-gradient(135deg, #0E0E0E 0%, #290F1A 100%);
   border-radius: 16px;
   padding: 0;
   width: 100%;
-  max-width: 600px;
+  max-width: 700px;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-  animation: modalSlideIn 0.3s ease-out;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(200, 68, 120, 0.3);
+  animation: modalSlideIn 0.4s ease-out;
 }
 
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-50px) scale(0.95);
+    transform: translateY(-30px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -40,177 +41,201 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 25px 30px;
-  border-bottom: 1px solid #eee;
-  background: linear-gradient(135deg, #9b59b6 0%, #e74c3c 100%);
-  color: white;
+  padding: 2rem 2.5rem;
+  border-bottom: 1px solid rgba(200, 68, 120, 0.2);
+  background: rgba(41, 15, 26, 0.6);
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
 }
 
 .close-button {
   background: none;
   border: none;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
-  color: white;
+  color: rgba(255, 255, 255, 0.7);
   opacity: 0.8;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: all 0.3s;
 }
 
 .close-button:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.2);
+  color: #C84478;
+  background: rgba(200, 68, 120, 0.1);
 }
 
 .personality-form {
-  padding: 30px;
-  max-height: calc(90vh - 100px);
+  padding: 2.5rem;
+  max-height: calc(90vh - 120px);
   overflow-y: auto;
+}
+
+/* Custom scrollbar for form */
+.personality-form::-webkit-scrollbar {
+  width: 8px;
+}
+
+.personality-form::-webkit-scrollbar-track {
+  background: rgba(14, 14, 14, 0.4);
+  border-radius: 4px;
+}
+
+.personality-form::-webkit-scrollbar-thumb {
+  background: rgba(200, 68, 120, 0.4);
+  border-radius: 4px;
+}
+
+.personality-form::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 68, 120, 0.6);
 }
 
 .quiz-intro {
   text-align: center;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: rgba(200, 68, 120, 0.1);
   border-radius: 12px;
-  border-left: 4px solid #9b59b6;
+  border: 1px solid rgba(200, 68, 120, 0.3);
 }
 
 .quiz-intro p {
   margin: 0;
-  color: #666;
-  font-size: 16px;
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .question-group {
-  margin-bottom: 35px;
-  padding: 25px;
-  background: #f8f9fa;
+  margin-bottom: 2rem;
+  padding: 1.75rem;
+  background: rgba(41, 15, 26, 0.4);
   border-radius: 12px;
-  border: 2px solid #e9ecef;
-  transition: all 0.2s;
+  border: 1px solid rgba(200, 68, 120, 0.2);
+  transition: all 0.3s;
 }
 
 .question-group:hover {
-  border-color: #9b59b6;
-  box-shadow: 0 5px 15px rgba(155, 89, 182, 0.1);
+  border-color: rgba(200, 68, 120, 0.4);
+  background: rgba(41, 15, 26, 0.6);
 }
 
 .question-group h4 {
-  margin: 0 0 20px 0;
-  color: #333;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.4;
+  margin: 0 0 1.5rem 0;
+  color: #FFFFFF;
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .options-group {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 0.75rem;
 }
 
 .option-label {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 15px;
-  background: white;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(14, 14, 14, 0.4);
+  border: 1px solid rgba(200, 68, 120, 0.2);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
 }
 
 .option-label:hover {
-  border-color: #9b59b6;
-  background: #f8f9ff;
+  border-color: rgba(200, 68, 120, 0.5);
+  background: rgba(200, 68, 120, 0.1);
 }
 
 .option-label input[type="radio"] {
-  margin: 0;
-  width: 20px;
-  height: 20px;
-  accent-color: #9b59b6;
+  margin: 0.25rem 0 0 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #C84478;
   cursor: pointer;
 }
 
-.option-label input[type="radio"]:checked + .option-text {
-  color: #9b59b6;
-  font-weight: 600;
+.option-label input[type="radio"]:checked ~ .option-text {
+  color: #FFFFFF;
 }
 
 .option-text {
   flex: 1;
-  font-size: 15px;
-  line-height: 1.4;
-  color: #555;
-  transition: all 0.2s;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s;
 }
 
 .option-text strong {
-  color: #9b59b6;
-  margin-right: 8px;
+  color: #C84478;
+  margin-right: 0.5rem;
+  font-weight: 500;
 }
 
 .form-actions {
   display: flex;
-  gap: 15px;
+  gap: 1rem;
   justify-content: flex-end;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(200, 68, 120, 0.2);
 }
 
 .cancel-button,
 .submit-button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 0.875rem 2rem;
+  border: 2px solid rgba(200, 68, 120, 0.5);
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 400;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
   min-width: 140px;
+  background: transparent;
 }
 
 .cancel-button {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 2px solid #e9ecef;
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .cancel-button:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .submit-button {
-  background: linear-gradient(135deg, #9b59b6 0%, #e74c3c 100%);
-  color: white;
+  background: rgba(200, 68, 120, 0.2);
+  color: #C84478;
+  border-color: #C84478;
 }
 
 .submit-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(155, 89, 182, 0.3);
+  background: rgba(200, 68, 120, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(200, 68, 120, 0.3);
 }
 
 .submit-button:disabled {
-  opacity: 0.6;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -218,68 +243,74 @@
 
 /* Results page styles */
 .results-content {
-  padding: 30px;
+  padding: 2.5rem;
   text-align: center;
 }
 
 .personality-result {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  padding: 30px;
+  background: rgba(200, 68, 120, 0.1);
+  padding: 2.5rem;
   border-radius: 16px;
-  border: 3px solid #9b59b6;
+  border: 2px solid rgba(200, 68, 120, 0.4);
 }
 
 .personality-result h3 {
-  font-size: 24px;
-  color: #9b59b6;
-  margin-bottom: 15px;
-  font-weight: 700;
+  font-size: 2rem;
+  color: #C84478;
+  margin-bottom: 1rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 .personality-result p {
-  color: #666;
-  font-size: 16px;
-  margin-bottom: 25px;
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.05rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
 .result-actions {
   display: flex;
-  gap: 15px;
+  gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .reset-button,
 .close-result-button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 0.875rem 2rem;
+  border: 2px solid;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 400;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
   min-width: 160px;
+  background: transparent;
 }
 
 .reset-button {
-  background: #f39c12;
-  color: white;
+  background: rgba(200, 68, 120, 0.15);
+  color: #C84478;
+  border-color: #C84478;
 }
 
 .reset-button:hover {
-  background: #e67e22;
-  transform: translateY(-1px);
+  background: rgba(200, 68, 120, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(200, 68, 120, 0.2);
 }
 
 .close-result-button {
-  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-  color: white;
+  background: rgba(200, 68, 120, 0.2);
+  color: #C84478;
+  border-color: #C84478;
 }
 
 .close-result-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(46, 204, 113, 0.3);
+  background: rgba(200, 68, 120, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(200, 68, 120, 0.3);
 }
 
 @media (max-width: 600px) {
@@ -287,33 +318,37 @@
     margin: 10px;
     max-height: 95vh;
   }
-  
+
   .modal-header {
-    padding: 20px;
+    padding: 1.5rem;
   }
-  
+
+  .modal-header h2 {
+    font-size: 1.4rem;
+  }
+
   .personality-form,
   .results-content {
-    padding: 20px;
+    padding: 1.5rem;
   }
-  
+
   .question-group {
-    padding: 20px;
+    padding: 1.5rem;
   }
-  
+
   .form-actions,
   .result-actions {
     flex-direction: column;
   }
-  
+
   .cancel-button,
   .submit-button,
   .reset-button,
   .close-result-button {
     width: 100%;
   }
-  
+
   .option-label {
-    padding: 12px;
+    padding: 0.875rem 1rem;
   }
 }

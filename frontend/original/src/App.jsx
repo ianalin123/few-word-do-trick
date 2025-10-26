@@ -236,14 +236,20 @@ function App() {
         </div>
       </header>
 
-      <div className="voice-dashboard-container">
-        <button
-          onClick={() => window.open('/voices', '_blank')}
-          className="voice-dashboard-button"
-        >
-          🎙️ Voice Dashboard
-        </button>
-      </div>
+      <button
+        onClick={() => window.open('/voices', '_blank')}
+        style={{
+          marginTop: '10px',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          backgroundColor: '#007bff',
+          color: 'white',
+          border: 'none',
+          cursor: 'pointer'
+        }}
+      >
+        🎙️ Voice Dashboard (Voice Selection & Settings)
+      </button>
 
 
       <div className="app-content">

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
+import './VoiceDashboard.css'
 
 // Get or create a unique user ID
 function getUserId() {
@@ -109,11 +110,11 @@ function VoiceDashboard() {
       console.error('🎧 TTS Error:', error)
       setPlayingVoiceId(null)
       if (error.response?.status === 401) {
-        alert('❌ API Key 无效或已过期')
+        alert('❌ API Key invalid or expired')
       } else if (error.response?.status === 429) {
-        alert('❌ API 配额已用完，请稍后再试')
+        alert('❌ API quota exceeded, please try again later')
       } else {
-        alert('❌ 生成预览失败：' + (error.response?.data?.detail?.message || error.message))
+        alert('❌ Failed to generate preview: ' + (error.response?.data?.detail?.message || error.message))
       }
     }
   }
@@ -125,25 +126,22 @@ function VoiceDashboard() {
       if (voice.preview_url) {
         console.log('🎧 Using preview_url:', voice.preview_url)
 
-        // ✅ 直接用 Audio 播放 preview_url（不经过 axios，避免 CORS）
         const audio = new Audio(voice.preview_url)
         audio.onended = () => {
           setPlayingVoiceId(null)
         }
         audio.onerror = (e) => {
           console.error('❌ Preview URL error, trying TTS API...', e)
-          // 如果 preview_url 失败，尝试用 TTS API
           generatePreviewWithTTS(voice)
         }
         await audio.play()
       } else {
-        // 没有 preview_url，用 TTS API
         await generatePreviewWithTTS(voice)
       }
     } catch (error) {
       console.error('🎧 Error playing preview:', error)
       setPlayingVoiceId(null)
-      alert('❌ 播放失败，请重试')
+      alert('❌ Playback failed, please try again')
     }
   }
 
@@ -192,50 +190,33 @@ function VoiceDashboard() {
     }
   }
 
-  if (loading) return <p>Loading voices...</p>
-  if (error) return <p style={{ color: 'red' }}>{error}</p>
+  if (loading) return <div className="loading-state">Loading voices...</div>
+  if (error) return <div className="error-state">{error}</div>
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '1.5rem' }}>
+    <div className="voice-dashboard">
+      <div className="voice-dashboard-header">
         <button
           onClick={() => window.location.href = '/'}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '6px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
+          className="back-button"
         >
           ← Back to Home
         </button>
       </div>
 
       <h1>🎙️ Voice Dashboard</h1>
-      <p style={{ marginBottom: '2rem' }}>Select a voice and customize its settings below.</p>
+      <p className="voice-dashboard-subtitle">Select a voice and customize its settings below.</p>
 
       {/* Voice Settings Section */}
-      <div style={{
-        backgroundColor: '#f8f9fa',
-        padding: '2rem',
-        borderRadius: '10px',
-        marginBottom: '3rem',
-        border: '2px solid #e0e0e0'
-      }}>
-        <h2 style={{ marginTop: 0 }}>🎛️ Voice Settings</h2>
-        <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+      <div className="settings-container">
+        <h2>🎛️ Voice Settings</h2>
+        <p className="settings-description">
           Customize how your voice sounds. These base settings will be automatically adjusted based on energy levels.
         </p>
 
-        <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-          <h3 style={{ marginTop: 0, fontSize: '16px' }}>📊 Energy Ranges Explanation</h3>
-          <ul style={{ lineHeight: '1.8', marginBottom: 0, fontSize: '14px' }}>
+        <div className="energy-explanation">
+          <h3>📊 Energy Ranges Explanation</h3>
+          <ul>
             <li><strong>Low Energy (0-0.33):</strong> Calm, subdued delivery</li>
             <li><strong>Medium Energy (0.34-0.66):</strong> Balanced, natural speech</li>
             <li><strong>High Energy (0.67-1.0):</strong> Expressive, dynamic delivery</li>
@@ -244,36 +225,19 @@ function VoiceDashboard() {
         </div>
 
         {/* Stability Slider */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <label style={{ fontWeight: 'bold', fontSize: '15px' }}>{tooltips.stability.title}</label>
+        <div className="slider-control">
+          <div className="slider-header">
+            <label className="slider-label">{tooltips.stability.title}</label>
             <button
               onMouseEnter={() => setShowTooltip('stability')}
               onMouseLeave={() => setShowTooltip(null)}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                cursor: 'help',
-                fontSize: '11px',
-                lineHeight: '18px'
-              }}
+              className="tooltip-button"
             >
               ?
             </button>
           </div>
           {showTooltip === 'stability' && (
-            <div style={{
-              backgroundColor: '#333',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '6px',
-              marginBottom: '10px',
-              fontSize: '13px'
-            }}>
+            <div className="tooltip-content">
               {tooltips.stability.description}
             </div>
           )}
@@ -284,46 +248,29 @@ function VoiceDashboard() {
             step="0.01"
             value={settings.stability}
             onChange={(e) => setSettings({ ...settings, stability: parseFloat(e.target.value) })}
-            style={{ width: '100%', marginBottom: '5px' }}
+            className="slider-input"
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+          <div className="slider-labels">
             <span>0.0 (Very Expressive)</span>
-            <span style={{ fontWeight: 'bold', color: '#000' }}>{settings.stability.toFixed(2)}</span>
+            <span className="slider-value">{settings.stability.toFixed(2)}</span>
             <span>1.0 (Very Consistent)</span>
           </div>
         </div>
 
         {/* Similarity Boost Slider */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <label style={{ fontWeight: 'bold', fontSize: '15px' }}>{tooltips.similarity_boost.title}</label>
+        <div className="slider-control">
+          <div className="slider-header">
+            <label className="slider-label">{tooltips.similarity_boost.title}</label>
             <button
               onMouseEnter={() => setShowTooltip('similarity_boost')}
               onMouseLeave={() => setShowTooltip(null)}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                cursor: 'help',
-                fontSize: '11px',
-                lineHeight: '18px'
-              }}
+              className="tooltip-button"
             >
               ?
             </button>
           </div>
           {showTooltip === 'similarity_boost' && (
-            <div style={{
-              backgroundColor: '#333',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '6px',
-              marginBottom: '10px',
-              fontSize: '13px'
-            }}>
+            <div className="tooltip-content">
               {tooltips.similarity_boost.description}
             </div>
           )}
@@ -334,46 +281,29 @@ function VoiceDashboard() {
             step="0.01"
             value={settings.similarity_boost}
             onChange={(e) => setSettings({ ...settings, similarity_boost: parseFloat(e.target.value) })}
-            style={{ width: '100%', marginBottom: '5px' }}
+            className="slider-input"
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+          <div className="slider-labels">
             <span>0.0 (Less Similar)</span>
-            <span style={{ fontWeight: 'bold', color: '#000' }}>{settings.similarity_boost.toFixed(2)}</span>
+            <span className="slider-value">{settings.similarity_boost.toFixed(2)}</span>
             <span>1.0 (More Similar)</span>
           </div>
         </div>
 
         {/* Style Slider */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <label style={{ fontWeight: 'bold', fontSize: '15px' }}>{tooltips.style.title}</label>
+        <div className="slider-control">
+          <div className="slider-header">
+            <label className="slider-label">{tooltips.style.title}</label>
             <button
               onMouseEnter={() => setShowTooltip('style')}
               onMouseLeave={() => setShowTooltip(null)}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                cursor: 'help',
-                fontSize: '11px',
-                lineHeight: '18px'
-              }}
+              className="tooltip-button"
             >
               ?
             </button>
           </div>
           {showTooltip === 'style' && (
-            <div style={{
-              backgroundColor: '#333',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '6px',
-              marginBottom: '10px',
-              fontSize: '13px'
-            }}>
+            <div className="tooltip-content">
               {tooltips.style.description}
             </div>
           )}
@@ -384,89 +314,55 @@ function VoiceDashboard() {
             step="0.01"
             value={settings.style}
             onChange={(e) => setSettings({ ...settings, style: parseFloat(e.target.value) })}
-            style={{ width: '100%', marginBottom: '5px' }}
+            className="slider-input"
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+          <div className="slider-labels">
             <span>0.0 (Neutral/Fast)</span>
-            <span style={{ fontWeight: 'bold', color: '#000' }}>{settings.style.toFixed(2)}</span>
+            <span className="slider-value">{settings.style.toFixed(2)}</span>
             <span>1.0 (Exaggerated/Slow)</span>
           </div>
         </div>
 
         {/* Speaker Boost Toggle */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <label style={{ fontWeight: 'bold', fontSize: '15px' }}>{tooltips.use_speaker_boost.title}</label>
+        <div className="checkbox-control">
+          <div className="slider-header">
+            <label className="slider-label">{tooltips.use_speaker_boost.title}</label>
             <button
               onMouseEnter={() => setShowTooltip('use_speaker_boost')}
               onMouseLeave={() => setShowTooltip(null)}
-              style={{
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                cursor: 'help',
-                fontSize: '11px',
-                lineHeight: '18px'
-              }}
+              className="tooltip-button"
             >
               ?
             </button>
           </div>
           {showTooltip === 'use_speaker_boost' && (
-            <div style={{
-              backgroundColor: '#333',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '6px',
-              marginBottom: '10px',
-              fontSize: '13px'
-            }}>
+            <div className="tooltip-content">
               {tooltips.use_speaker_boost.description}
             </div>
           )}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={settings.use_speaker_boost}
               onChange={(e) => setSettings({ ...settings, use_speaker_boost: e.target.checked })}
-              style={{ width: '18px', height: '18px' }}
+              className="checkbox-input"
             />
-            <span style={{ fontSize: '14px' }}>{settings.use_speaker_boost ? 'Enabled (Recommended)' : 'Disabled'}</span>
+            <span className="checkbox-text">{settings.use_speaker_boost ? 'Enabled (Recommended)' : 'Disabled'}</span>
           </label>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
+        <div className="settings-actions">
           <button
             onClick={handleSaveSettings}
             disabled={savingSettings}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: savingSettings ? '#6c757d' : '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: savingSettings ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold'
-            }}
+            className="save-button"
           >
             {savingSettings ? '💾 Saving...' : '💾 Save Settings'}
           </button>
           <button
             onClick={handleResetSettings}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
+            className="reset-button"
           >
             🔄 Reset to Defaults
           </button>
@@ -474,89 +370,61 @@ function VoiceDashboard() {
       </div>
 
       {/* Voice Selection Section */}
-      <h2>🎤 Available Voices</h2>
-      <p style={{ marginBottom: '1.5rem' }}>Preview and select your preferred voice.</p>
+      <div className="voices-section">
+        <h2>🎤 Available Voices</h2>
+        <p className="voices-description">Preview and select your preferred voice.</p>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.5rem',
-        }}
-      >
-        {voices.map((v) => (
-          <div
-            key={v.voice_id}
-            style={{
-              border: '1px solid #ccc',
-              borderRadius: '10px',
-              padding: '1rem',
-              backgroundColor: playingVoiceId === v.voice_id ? '#e3f2fd' : '#fff',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              transition: 'all 0.2s',
-            }}
-          >
-            <h3>{v.name}</h3>
-            <p style={{ color: '#777', fontSize: '0.9rem' }}>
-              Category: {v.category || 'Unknown'}
-            </p>
-            {v.labels && (
-              <p style={{ color: '#999', fontSize: '0.8rem' }}>
-                {v.labels.accent && `${v.labels.accent}`}
-                {v.labels.age && ` • ${v.labels.age}`}
-                {v.labels.gender && ` • ${v.labels.gender}`}
+        <div className="voices-grid">
+          {voices.map((v) => (
+            <div
+              key={v.voice_id}
+              className={`voice-card ${playingVoiceId === v.voice_id ? 'playing' : ''}`}
+            >
+              <h3>{v.name}</h3>
+              <p className="voice-category">
+                Category: {v.category || 'Unknown'}
               </p>
-            )}
-            <div style={{ marginTop: '10px' }}>
-              <button
-                onClick={() => handlePreview(v)}
-                disabled={playingVoiceId === v.voice_id}
-                style={{
-                  backgroundColor: playingVoiceId === v.voice_id ? '#6c757d' : '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '5px',
-                  cursor: playingVoiceId === v.voice_id ? 'not-allowed' : 'pointer',
-                  marginRight: '10px',
-                  opacity: playingVoiceId === v.voice_id ? 0.6 : 1,
-                }}
-              >
-                {playingVoiceId === v.voice_id ? '🔊 Playing...' : '▶️ Preview'}
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const userId = getUserId()
-                    await axios.post('/api/user/voice', {
-                      user_id: userId,
-                      voice_id: v.voice_id,
-                      voice_name: v.name
-                    })
-                    setSelectedVoiceId(v.voice_id)
-                    // Keep localStorage for backward compatibility
-                    localStorage.setItem('selectedVoice', v.voice_id)
-                    localStorage.setItem('selectedVoiceName', v.name)
-                    alert(`✅ Selected voice: ${v.name}`)
-                  } catch (error) {
-                    console.error('❌ Error saving voice selection:', error)
-                    alert('❌ Failed to save voice selection')
-                  }
-                }}
-                style={{
-                  backgroundColor: selectedVoiceId === v.voice_id ? '#6c757d' : '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                }}
-              >
-                {selectedVoiceId === v.voice_id ? '✓ Selected' : '✅ Select'}
-              </button>
+              {v.labels && (
+                <p className="voice-labels">
+                  {v.labels.accent && `${v.labels.accent}`}
+                  {v.labels.age && ` • ${v.labels.age}`}
+                  {v.labels.gender && ` • ${v.labels.gender}`}
+                </p>
+              )}
+              <div className="voice-actions">
+                <button
+                  onClick={() => handlePreview(v)}
+                  disabled={playingVoiceId === v.voice_id}
+                  className="preview-button"
+                >
+                  {playingVoiceId === v.voice_id ? '🔊 Playing...' : '▶️ Preview'}
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const userId = getUserId()
+                      await axios.post('/api/user/voice', {
+                        user_id: userId,
+                        voice_id: v.voice_id,
+                        voice_name: v.name
+                      })
+                      setSelectedVoiceId(v.voice_id)
+                      localStorage.setItem('selectedVoice', v.voice_id)
+                      localStorage.setItem('selectedVoiceName', v.name)
+                      alert(`✅ Selected voice: ${v.name}`)
+                    } catch (error) {
+                      console.error('❌ Error saving voice selection:', error)
+                      alert('❌ Failed to save voice selection')
+                    }
+                  }}
+                  className={`select-button ${selectedVoiceId === v.voice_id ? 'selected' : ''}`}
+                >
+                  {selectedVoiceId === v.voice_id ? '✓ Selected' : '✅ Select'}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
