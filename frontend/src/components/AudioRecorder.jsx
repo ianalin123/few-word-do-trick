@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 
-const AudioRecorder = ({ onTranscription }) => {
+const AudioRecorder = ({ onTranscription, getOrCreateConvId }) => {
   const [mediaRecorder, setMediaRecorder] = useState(null)
   const [audioChunks, setAudioChunks] = useState([])
   const [isRecording, setIsRecording] = useState(false)
@@ -146,9 +146,11 @@ const AudioRecorder = ({ onTranscription }) => {
   const processAudio = async (audioBlob) => {
     setIsProcessing(true)
     try {
+      const convId = await getOrCreateConvId()
       const formData = new FormData()
       formData.append('audio_file', audioBlob, 'recording.webm')
-      
+      formData.append('conv_id', convId)
+
       const response = await fetch('/api/speech-to-text', {
         method: 'POST',
         body: formData
