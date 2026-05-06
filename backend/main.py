@@ -130,6 +130,7 @@ app.add_middleware(
 LAVA_BASE_URL = os.getenv("LAVA_BASE_URL")
 LAVA_FORWARD_TOKEN = os.getenv("LAVA_FORWARD_TOKEN")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 
 @app.get("/api/health")
@@ -204,22 +205,24 @@ async def speech_to_text(audio_file: UploadFile = File(...)):
             "language": "en"
         }
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, files=files, data=data)
+            print(f"🎙️ Lava STT response: {response.status_code} {response.text[:200]}")
             response.raise_for_status()
-            
+
             result = response.json()
             text = result.get("text") or result.get("response", {}).get("text")
             return {"text": text or "No transcription returned."}
-            
+
     except httpx.HTTPStatusError as e:
         detail = f"Lava/OpenAI API error {e.response.status_code}: {e.response.text}"
         print(f"❌ Speech-to-text error: {detail}")
         raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
-        detail = f"Speech-to-text error: {str(e)}"
-        print(f"❌ {detail}")
-        raise HTTPException(status_code=500, detail=detail)
+        import traceback
+        print(f"❌ Speech-to-text error: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-responses")
 async def generate_responses(request: Request):
@@ -258,9 +261,10 @@ async def generate_responses(request: Request):
                 "contradictory": "2 sentences (20-35 words)"
             }
         
-        # Build personality context with MBTI function
+        # Pre-fetch personality context if available (latency-optimized: resolved before LLM call)
+        got_personality_type = bool(personality_type)
         personality_context = ""
-        if personality_type:
+        if got_personality_type:
             mbti_data = get_mbti_communication_style(personality_type)
             personality_context = f"""
                 Personality Type: {personality_type}
@@ -274,7 +278,9 @@ async def generate_responses(request: Request):
                 - Contradictory: "{mbti_data['few_shot_examples']['contradictory']}"
 
                 Match this communication pattern in your generated responses."""
-                        
+
+        print(f"🧠 Personality context: {'injected (' + personality_type + ')' if got_personality_type else 'none'}")
+
         prompt = f"""
                 You are a sentence builder helping the user express themselves naturally.
 
@@ -333,28 +339,21 @@ async def generate_responses(request: Request):
                 """
 
         url = f"{LAVA_BASE_URL}/forward?u=https://api.openai.com/v1/chat/completions"
-        
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {LAVA_FORWARD_TOKEN}",
         }
-        
-        payload = {
-            "model": "gpt-5-chat-latest",
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.35,
-            "max_tokens": 1000  # Increased for flexibility with more keywords
-        }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload)
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.35,
+                "max_tokens": 1000
+            })
             response.raise_for_status()
-            
-            result = response.json()
-            content = result["choices"][0]["message"]["content"]
-            
+            content = response.json()["choices"][0]["message"]["content"]
+
             # Parse JSON response
             try:
                 responses = json.loads(content)
@@ -365,7 +364,6 @@ async def generate_responses(request: Request):
                     "contradictory": responses.get("contradictory", "Oh wonderful.")
                 }
             except json.JSONDecodeError:
-                # Fallback if JSON parsing fails
                 print(f"⚠️ JSON parsing failed, content: {content}")
                 print(f"📊 Keyword count was: {keyword_count}")
                 return {
@@ -428,7 +426,6 @@ async def text_to_speech(
 
         # Apply energy-based range to stability (contradictory uses fixed value)
         if energy == "contradictory":
-            # For sarcasm, use fixed low values
             settings = {
                 "stability": 0.1,
                 "similarity_boost": base_settings["similarity_boost"],
@@ -436,13 +433,24 @@ async def text_to_speech(
                 "use_speaker_boost": base_settings["use_speaker_boost"]
             }
         else:
-            # Apply energy range to the user's base stability setting
             settings = {
                 "stability": apply_energy_range(base_settings["stability"], energy),
                 "similarity_boost": base_settings["similarity_boost"],
                 "style": apply_energy_range(base_settings["style"], energy),
                 "use_speaker_boost": base_settings["use_speaker_boost"]
             }
+
+        # Apply emotion offset on top of energy settings
+        # happy → more expressive (lower stability, higher style)
+        # sad   → more monotone  (higher stability, lower style)
+        emotion_offsets = {
+            "happy": {"stability": -0.2, "style": +0.2},
+            "sad":   {"stability": +0.2, "style": -0.2},
+        }
+        if emotional_state in emotion_offsets:
+            offset = emotion_offsets[emotional_state]
+            settings["stability"] = max(0.0, min(1.0, settings["stability"] + offset["stability"]))
+            settings["style"]     = max(0.0, min(1.0, settings["style"]     + offset["style"]))
 
         # Get user's selected voice ID or use default from env
         voice_id = ELEVENLABS_VOICE_ID  # Default fallback
@@ -456,17 +464,17 @@ async def text_to_speech(
         print(f"🎤 TTS Request: energy={energy}, emotion={emotional_state}, user={user_id}")
         print(f"   Applied settings: stability={settings['stability']:.2f}, similarity={settings['similarity_boost']:.2f}, style={settings['style']:.2f}")
 
-        url = f"{LAVA_BASE_URL}/forward?u=https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {LAVA_FORWARD_TOKEN}"
+            "xi-api-key": ELEVENLABS_API_KEY
         }
         
         payload = {
             "text": text,
-            "model_id": "eleven_monolingual_v1",
+            "model_id": "eleven_turbo_v2_5",
             "voice_settings": settings
         }
         

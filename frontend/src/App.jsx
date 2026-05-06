@@ -24,10 +24,14 @@ function App() {
   const [generatedResponses, setGeneratedResponses] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
-  
+
   // Add personality state
   const [personalityType, setPersonalityType] = useState('')
   const [personalityDescription, setPersonalityDescription] = useState('')
+
+  const [editableResponse, setEditableResponse] = useState('')
+  const [selectedEnergy, setSelectedEnergy] = useState('')
+  const [uiStep, setUiStep] = useState('input') // 'input' | 'selecting' | 'editing'
 
   // Connect to WebSocket for live emotion updates from EEG
   useEffect(() => {
@@ -139,6 +143,7 @@ function App() {
 
       const data = await response.json()
       setGeneratedResponses(data)
+      setUiStep('selecting')
     } catch (error) {
       console.error('Error generating responses:', error)
       alert('Failed to generate responses. Please try again.')
@@ -153,12 +158,35 @@ function App() {
     setPersonalityDescription(description)
   }
 
-  const handleResponseSelect = async (response, energy) => {  // Changed 'sentiment' to 'energy'
-    // Add user's selected response to conversation
+  const handleResponseSelect = (response, energy) => {
+    setEditableResponse(response)
+    setSelectedEnergy(energy)
+    setUiStep('editing')
+  }
+
+  const handleBackToInput = () => {
+    setGeneratedResponses(null)
+    setUserKeywords('')
+    setUiStep('input')
+  }
+
+  const handleBackToSelecting = () => {
+    setEditableResponse('')
+    setSelectedEnergy('')
+    setUiStep('selecting')
+  }
+
+  // Handle sending the edited response
+  const handleSendResponse = async () => {
+    if (!editableResponse.trim()) {
+      return
+    }
+
+    // Add user's edited response to conversation
     const userMessage = {
       id: Date.now(),
       speaker: 'USER',
-      text: response,
+      text: editableResponse,
       timestamp: new Date().toLocaleTimeString()
     }
     setConversation(prev => [...prev, userMessage])
@@ -167,24 +195,24 @@ function App() {
     try {
       const userId = getUserId()
       const formData = new FormData()
-      formData.append('text', response)
-      formData.append('energy', energy)                          // NEW: low/medium/high/contradictory
-      formData.append('emotional_state', emotionalState)         // NEW: happy/sad from EEG
-      formData.append('user_id', userId)                         // NEW: user ID for voice preference
+      formData.append('text', editableResponse)
+      formData.append('energy', selectedEnergy)
+      formData.append('emotional_state', emotionalState)
+      formData.append('user_id', userId)
 
-      console.log(`🎤 TTS: energy=${energy}, emotion=${emotionalState}, user=${userId}`)
+      console.log(`🎤 TTS: energy=${selectedEnergy}, emotion=${emotionalState}, user=${userId}`)
 
       const response_audio = await fetch('/api/text-to-speech', {
         method: 'POST',
         body: formData
       })
-  
+
       if (response_audio.ok) {
         const audioBlob = await response_audio.blob()
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         audio.play()
-        
+
         // Clean up URL after audio finishes
         audio.onended = () => URL.revokeObjectURL(audioUrl)
       } else {
@@ -193,16 +221,22 @@ function App() {
     } catch (error) {
       console.error('Error playing audio:', error)
     }
-  
-    // Clear generated responses
+
+    // Clear everything and return to input
     setGeneratedResponses(null)
     setUserKeywords('')
+    setEditableResponse('')
+    setSelectedEnergy('')
+    setUiStep('input')
   }
 
   const clearConversation = () => {
     setConversation([])
     setGeneratedResponses(null)
     setUserKeywords('')
+    setEditableResponse('')
+    setSelectedEnergy('')
+    setUiStep('input')
   }
 
   return (
@@ -255,19 +289,46 @@ function App() {
         </div>
 
         <div className="center-panel">
-          <ConversationDisplay conversation={conversation} />
-          <KeywordInput 
-            value={userKeywords}
-            onChange={setUserKeywords}
-            onGenerate={handleGenerateResponses}
-            isProcessing={isProcessing}
-          />
-          {generatedResponses && (
-            <ResponseSelector 
-              responses={generatedResponses} 
+          {uiStep === 'input' && (
+            <>
+              <ConversationDisplay conversation={conversation} />
+              <KeywordInput
+                value={userKeywords}
+                onChange={setUserKeywords}
+                onGenerate={handleGenerateResponses}
+                isProcessing={isProcessing}
+              />
+            </>
+          )}
+          {uiStep === 'selecting' && (
+            <ResponseSelector
+              responses={generatedResponses}
               onSelect={handleResponseSelect}
-              emotionalState={emotionalState}  // Add this prop
+              onBack={handleBackToInput}
+              emotionalState={emotionalState}
             />
+          )}
+          {uiStep === 'editing' && (
+            <div className="response-editor">
+              <button className="back-button-editor" onClick={handleBackToSelecting}>← Back</button>
+              <h3>Edit Your Response</h3>
+              <textarea
+                value={editableResponse}
+                onChange={(e) => setEditableResponse(e.target.value)}
+                className="response-textarea"
+                placeholder="Edit your response before sending..."
+                rows={4}
+              />
+              <div className="editor-actions">
+                <button
+                  onClick={handleSendResponse}
+                  className="send-response-button"
+                  disabled={!editableResponse.trim()}
+                >
+                  🎤 Send & Speak
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

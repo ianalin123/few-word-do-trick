@@ -18,6 +18,8 @@ function VoiceDashboard() {
   const [error, setError] = useState(null)
   const [playingVoiceId, setPlayingVoiceId] = useState(null)
   const [selectedVoiceId, setSelectedVoiceId] = useState(null)
+  const [selectedVoiceName, setSelectedVoiceName] = useState(null)
+  const [testingSettings, setTestingSettings] = useState(false)
 
   // Voice settings state
   const [settings, setSettings] = useState({
@@ -39,7 +41,7 @@ function VoiceDashboard() {
           },
         })
         console.log('✅ Voices response:', res.data)
-        setVoices(res.data.voices || [])
+        setVoices((res.data.voices || []).filter(v => v.category === 'premade'))
       } catch (err) {
         console.error('❌ Error fetching voices:', err)
         setError('Failed to load voices. Check your API key or network.')
@@ -54,6 +56,7 @@ function VoiceDashboard() {
         const res = await axios.get(`/api/user/${userId}/voice`)
         if (res.data.voice_id) {
           setSelectedVoiceId(res.data.voice_id)
+          setSelectedVoiceName(res.data.voice_name)
           console.log('✅ Current voice:', res.data.voice_name)
         }
       } catch (err) {
@@ -171,6 +174,40 @@ function VoiceDashboard() {
     })
   }
 
+  const handleTestSettings = async () => {
+    if (!selectedVoiceId) {
+      alert('Select a voice first')
+      return
+    }
+    setTestingSettings(true)
+    try {
+      const response = await axios.post(
+        `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`,
+        {
+          text: "Hey, this is how I sound with your current settings. How does this feel?",
+          model_id: "eleven_turbo_v2_5",
+          voice_settings: settings
+        },
+        {
+          headers: {
+            'xi-api-key': import.meta.env.VITE_ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'blob'
+        }
+      )
+      const audioUrl = URL.createObjectURL(response.data)
+      const audio = new Audio(audioUrl)
+      audio.onended = () => URL.revokeObjectURL(audioUrl)
+      await audio.play()
+    } catch (err) {
+      console.error('Test failed:', err)
+      alert('Test failed — check console')
+    } finally {
+      setTestingSettings(false)
+    }
+  }
+
   const tooltips = {
     stability: {
       title: "Stability",
@@ -205,7 +242,11 @@ function VoiceDashboard() {
       </div>
 
       <h1>🎙️ Voice Dashboard</h1>
-      <p className="voice-dashboard-subtitle">Select a voice and customize its settings below.</p>
+      <p className="voice-dashboard-subtitle">
+        {selectedVoiceName
+          ? <>Active voice: <span className="selected-voice-name">{selectedVoiceName}</span></>
+          : 'Select a voice and customize its settings below.'}
+      </p>
 
       {/* Voice Settings Section */}
       <div className="settings-container">
@@ -354,6 +395,13 @@ function VoiceDashboard() {
         {/* Action Buttons */}
         <div className="settings-actions">
           <button
+            onClick={handleTestSettings}
+            disabled={testingSettings || !selectedVoiceId}
+            className="test-button"
+          >
+            {testingSettings ? '🔊 Playing...' : '🎧 Test Current Settings'}
+          </button>
+          <button
             onClick={handleSaveSettings}
             disabled={savingSettings}
             className="save-button"
@@ -364,7 +412,7 @@ function VoiceDashboard() {
             onClick={handleResetSettings}
             className="reset-button"
           >
-            🔄 Reset to Defaults
+            🔄 Reset
           </button>
         </div>
       </div>
@@ -378,7 +426,7 @@ function VoiceDashboard() {
           {voices.map((v) => (
             <div
               key={v.voice_id}
-              className={`voice-card ${playingVoiceId === v.voice_id ? 'playing' : ''}`}
+              className={`voice-card ${playingVoiceId === v.voice_id ? 'playing' : ''} ${selectedVoiceId === v.voice_id ? 'selected' : ''}`}
             >
               <h3>{v.name}</h3>
               <p className="voice-category">
@@ -409,8 +457,25 @@ function VoiceDashboard() {
                         voice_name: v.name
                       })
                       setSelectedVoiceId(v.voice_id)
+                      setSelectedVoiceName(v.name)
                       localStorage.setItem('selectedVoice', v.voice_id)
                       localStorage.setItem('selectedVoiceName', v.name)
+
+                      // Apply this voice's preset settings if available, else reset to defaults
+                      const newSettings = v.settings ? {
+                        stability: v.settings.stability ?? 0.5,
+                        similarity_boost: v.settings.similarity_boost ?? 0.75,
+                        style: v.settings.style ?? 0.0,
+                        use_speaker_boost: v.settings.use_speaker_boost ?? true
+                      } : {
+                        stability: 0.5,
+                        similarity_boost: 0.75,
+                        style: 0.0,
+                        use_speaker_boost: true
+                      }
+                      setSettings(newSettings)
+                      await axios.post('/api/user/voice-settings', { user_id: userId, ...newSettings })
+
                       alert(`✅ Selected voice: ${v.name}`)
                     } catch (error) {
                       console.error('❌ Error saving voice selection:', error)

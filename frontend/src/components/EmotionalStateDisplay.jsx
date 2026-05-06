@@ -30,7 +30,6 @@ const EmotionalStateDisplay = ({ emotionalState }) => {
 
   return (
     <div className={`emotional-state ${emotionalState}`}>
-      <h3>Kevin's Current Mood</h3>
       <div className="kevin-image-container">
         <img 
           src={getKevinImage(emotionalState)} 
