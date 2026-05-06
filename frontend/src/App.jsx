@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { db } from './firebase'
 import AudioRecorder from './components/AudioRecorder'
 import ConversationDisplay from './components/ConversationDisplay'
 import ResponseSelector from './components/ResponseSelector'
@@ -17,7 +19,22 @@ function getUserId() {
   return userId
 }
 
+async function postMessage(convId, speaker, text, emotionLabel, emotionConfidence) {
+  const body = {
+    speaker,
+    text,
+    timestamp: new Date().toISOString(),
+    emotion: emotionLabel ? { label: emotionLabel, confidence: emotionConfidence } : null,
+  }
+  await fetch(`/api/conversations/${convId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 function App() {
+  const [convId, setConvId] = useState(null)
   const [conversation, setConversation] = useState([])
   const [emotionalState, setEmotionalState] = useState('neutral')
   const [userKeywords, setUserKeywords] = useState('')
@@ -32,6 +49,51 @@ function App() {
   const [editableResponse, setEditableResponse] = useState('')
   const [selectedEnergy, setSelectedEnergy] = useState('')
   const [uiStep, setUiStep] = useState('input') // 'input' | 'selecting' | 'editing'
+
+  const convIdRef = useRef(null)
+  const convCreatePromiseRef = useRef(null)
+
+  const getOrCreateConvId = async () => {
+    if (convIdRef.current) return convIdRef.current
+    if (convCreatePromiseRef.current) return await convCreatePromiseRef.current
+
+    convCreatePromiseRef.current = (async () => {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: getUserId() }),
+      })
+      const data = await res.json()
+      const id = data.conv_id
+      convIdRef.current = id
+      setConvId(id)
+      return id
+    })()
+
+    return await convCreatePromiseRef.current
+  }
+
+  // Subscribe to Firestore messages for the current conversation
+  useEffect(() => {
+    if (!convId) return
+    const q = query(
+      collection(db, 'conversations', convId, 'messages'),
+      orderBy('timestamp', 'asc')
+    )
+    const unsubscribe = onSnapshot(q, snapshot => {
+      const msgs = snapshot.docs.map(doc => {
+        const d = doc.data()
+        return {
+          id: d.id,
+          speaker: d.speaker,
+          text: d.text,
+          timestamp: d.timestamp?.toDate?.()?.toLocaleTimeString() ?? '',
+        }
+      })
+      setConversation(msgs)
+    })
+    return unsubscribe
+  }, [convId])
 
   // Connect to WebSocket for live emotion updates from EEG
   useEffect(() => {
@@ -101,14 +163,8 @@ function App() {
     }
   }, [])
 
-  const handleAudioTranscription = (transcription) => {
-    const newMessage = {
-      id: Date.now(),
-      speaker: 'OTHER',
-      text: transcription,
-      timestamp: new Date().toLocaleTimeString()
-    }
-    setConversation(prev => [...prev, newMessage])
+  const handleAudioTranscription = (_transcription) => {
+    // STT endpoint now persists the diarized message directly; Firestore listener updates UI.
   }
 
   const handleGenerateResponses = async () => {
@@ -132,8 +188,10 @@ function App() {
           user_keywords: userKeywords,
           previous_conversation: conversationText,
           emotional_state: emotionalState,
-          personality_type: personalityType, // Send personality type
-          personality_description: personalityDescription // Send description
+          personality_type: personalityType,
+          personality_description: personalityDescription,
+          conv_id: convId,
+          user_id: getUserId(),
         })
       })
 
@@ -182,14 +240,11 @@ function App() {
       return
     }
 
-    // Add user's edited response to conversation
-    const userMessage = {
-      id: Date.now(),
-      speaker: 'USER',
-      text: editableResponse,
-      timestamp: new Date().toLocaleTimeString()
-    }
-    setConversation(prev => [...prev, userMessage])
+    // Lazily create the Firestore conversation on first send.
+    const activeConvId = await getOrCreateConvId()
+
+    // Persist user's response to Firestore (listener will update UI)
+    postMessage(activeConvId, 'USER', editableResponse, emotionalState, null)
 
     // Play text-to-speech with energy level and emotional state
     try {
@@ -231,6 +286,9 @@ function App() {
   }
 
   const clearConversation = () => {
+    convIdRef.current = null
+    convCreatePromiseRef.current = null
+    setConvId(null)
     setConversation([])
     setGeneratedResponses(null)
     setUserKeywords('')
@@ -283,8 +341,9 @@ function App() {
       <div className="app-content">
         <div className="left-panel">
           <EmotionalStateDisplay emotionalState={emotionalState} />
-          <AudioRecorder 
+          <AudioRecorder
             onTranscription={handleAudioTranscription}
+            getOrCreateConvId={getOrCreateConvId}
           />
         </div>
 

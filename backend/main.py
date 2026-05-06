@@ -11,8 +11,16 @@ import joblib
 import numpy as np
 from mbti import get_mbti_communication_style
 from pydantic import BaseModel
+from services.firestore_service import init_firestore, create_conversation, append_message
+from services.speaker_service import speaker_service
+from models.firestore_models import MessageCreate
+from agents.conversation_agent import conversation_graph
+from datetime import datetime, timezone
 
 load_dotenv()
+
+_FIREBASE_KEY_PATH = os.path.join(os.path.dirname(__file__), "..", "firebase-admin-key.json")
+init_firestore(os.path.abspath(_FIREBASE_KEY_PATH))
 
 app = FastAPI(title="AI Conversation Assistant", version="1.0.0")
 
@@ -133,9 +141,25 @@ ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 
+class ConversationCreateRequest(BaseModel):
+    user_id: str
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "message": "AI Conversation Assistant API"}
+
+
+@app.post("/api/conversations")
+async def create_conversation_endpoint(req: ConversationCreateRequest):
+    conv_id = create_conversation(req.user_id)
+    return {"conv_id": conv_id}
+
+
+@app.post("/api/conversations/{conv_id}/messages")
+async def append_message_endpoint(conv_id: str, message: MessageCreate):
+    msg_id = append_message(conv_id, message)
+    return {"msg_id": msg_id}
 
 @app.post("/api/user/voice")
 async def set_user_voice(selection: VoiceSelection):
@@ -184,35 +208,45 @@ async def get_user_voice_settings(user_id: str):
     return DEFAULT_VOICE_SETTINGS
 
 @app.post("/api/speech-to-text")
-async def speech_to_text(audio_file: UploadFile = File(...)):
-    """Convert audio to text using OpenAI Whisper via Lava Payments"""
+async def speech_to_text(
+    audio_file: UploadFile = File(...),
+    conv_id: Optional[str] = Form(None),
+):
+    """Convert audio to text using OpenAI Whisper via Lava Payments, then diarize and persist."""
     try:
-        # Read audio file
         audio_data = await audio_file.read()
-        
-        # Prepare request to OpenAI via Lava
+
         url = f"{LAVA_BASE_URL}/forward?u=https://api.openai.com/v1/audio/transcriptions"
-        
-        headers = {
-            "Authorization": f"Bearer {LAVA_FORWARD_TOKEN}",
-        }
-        
-        files = {
-            "file": ("audio.webm", io.BytesIO(audio_data), "audio/webm")
-        }
-        data = {
-            "model": "whisper-1",
-            "language": "en"
-        }
-        
+        headers = {"Authorization": f"Bearer {LAVA_FORWARD_TOKEN}"}
+        files = {"file": ("audio.webm", io.BytesIO(audio_data), "audio/webm")}
+        data = {"model": "whisper-1", "language": "en"}
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, headers=headers, files=files, data=data)
             print(f"🎙️ Lava STT response: {response.status_code} {response.text[:200]}")
             response.raise_for_status()
-
             result = response.json()
-            text = result.get("text") or result.get("response", {}).get("text")
-            return {"text": text or "No transcription returned."}
+            text = result.get("text") or result.get("response", {}).get("text") or "No transcription returned."
+
+        speaker_id = "speaker_unknown"
+        persisted = False
+        if conv_id:
+            speaker_id, _sim = speaker_service.identify_speaker(conv_id, audio_data)
+            try:
+                append_message(
+                    conv_id,
+                    MessageCreate(
+                        speaker=speaker_id,
+                        text=text,
+                        timestamp=datetime.now(timezone.utc),
+                        emotion=None,
+                    ),
+                )
+                persisted = True
+            except Exception as e:
+                print(f"⚠️ append_message failed: {e}")
+
+        return {"text": text, "speaker_id": speaker_id, "persisted": persisted}
 
     except httpx.HTTPStatusError as e:
         detail = f"Lava/OpenAI API error {e.response.status_code}: {e.response.text}"
@@ -226,157 +260,33 @@ async def speech_to_text(audio_file: UploadFile = File(...)):
 
 @app.post("/api/generate-responses")
 async def generate_responses(request: Request):
-    """Generate four responses with different energy levels using OpenAI via Lava"""
+    """Generate four responses using the LangGraph conversation agent."""
+    import asyncio
     try:
-        # Parse JSON request body
         body = await request.json()
-        user_keywords = body.get("user_keywords", "")
-        previous_conversation = body.get("previous_conversation", "")
-        emotional_state = body.get("emotional_state", "neutral")
         personality_type = body.get("personality_type", "")
-        
-        # Calculate keyword count for dynamic length guidance
-        keyword_count = len([k.strip() for k in user_keywords.split() if k.strip()])
-        
-        # Dynamic length guidance based on keywords
-        if keyword_count <= 3:
-            length_guidance = {
-                "low": "3-7 words",
-                "medium": "1 sentence (8-15 words)",
-                "high": "2 sentences (15-25 words)",
-                "contradictory": "1 sentence (8-15 words)"
-            }
-        elif keyword_count <= 6:
-            length_guidance = {
-                "low": "5-10 words",
-                "medium": "1-2 sentences (15-25 words)",
-                "high": "2-3 sentences (25-40 words)",
-                "contradictory": "1-2 sentences (15-25 words)"
-            }
-        else:  # 7+ keywords
-            length_guidance = {
-                "low": "8-12 words",
-                "medium": "2 sentences (20-35 words)",
-                "high": "3-4 sentences (40-60 words)",
-                "contradictory": "2 sentences (20-35 words)"
-            }
-        
-        # Pre-fetch personality context if available (latency-optimized: resolved before LLM call)
-        got_personality_type = bool(personality_type)
-        personality_context = ""
-        if got_personality_type:
-            mbti_data = get_mbti_communication_style(personality_type)
-            personality_context = f"""
-                Personality Type: {personality_type}
-                Communication Style: {mbti_data['communication_style']}
-                Preferred Vocabulary: {mbti_data['vocabulary_preferences']}
+        print(f"🧠 Personality context: {'injected (' + personality_type + ')' if personality_type else 'none'}")
 
-                Few-Shot Examples for {personality_type}:
-                - Low energy: "{mbti_data['few_shot_examples']['low']}"
-                - Medium energy: "{mbti_data['few_shot_examples']['medium']}"
-                - High energy: "{mbti_data['few_shot_examples']['high']}"
-                - Contradictory: "{mbti_data['few_shot_examples']['contradictory']}"
-
-                Match this communication pattern in your generated responses."""
-
-        print(f"🧠 Personality context: {'injected (' + personality_type + ')' if got_personality_type else 'none'}")
-
-        prompt = f"""
-                You are a sentence builder helping the user express themselves naturally.
-
-                The user has given you {keyword_count} keywords or phrases. Some may be grammatically incomplete (missing words like "am", "is", "the", etc.).
-
-                Keywords: {user_keywords}
-                User's emotion: {emotional_state}{personality_context}
-
-                YOUR TASK:
-                - Build natural sentences that capture the MEANING of these keywords
-                - Fix grammar by adding necessary words ("I great" → "I'm great" or "I feel great")
-                - The user will SPEAK these - make them sound natural and complete
-                - DO NOT just copy-paste broken phrases
-
-                Build 4 variations with different energy:
-
-                "low" ({length_guidance['low']}):
-                - Brief and understated
-                - {emotional_state}: {'calm' if emotional_state == 'happy' else 'subdued'}
-
-                "medium" ({length_guidance['medium']}):
-                - Natural sentence length
-                - {emotional_state}: {'genuine positivity' if emotional_state == 'happy' else 'sincere concern'}
-
-                "high" ({length_guidance['high']}):
-                - Expressive and detailed
-                - {emotional_state}: {'enthusiastic' if emotional_state == 'happy' else 'deeply emotional'}
-
-                "contradictory" ({length_guidance['contradictory']}):
-                - Sarcastic/ironic
-                - {emotional_state}: {'ironic understatement' if emotional_state == 'happy' else 'dark humor'}
-
-                Output format: {{"low": "...", "medium": "...", "high": "...", "contradictory": "..."}}
-
-                EXAMPLES:
-
-                Keywords: "sound good, i great too"
-                Emotion: neutral
-                Output:
-                {{"low": "Sounds good, I'm great.", "medium": "That sounds good to me, and honestly I'm feeling great too.", "high": "That sounds really good! I'm actually feeling great about this too - everything seems to be going well.", "contradictory": "Oh yeah, sounds absolutely wonderful. I'm just great. Living the dream."}}
-
-                Keywords: "tired work late"
-                Emotion: sad
-                Output:
-                {{"low": "Tired from work.", "medium": "I'm really tired because I've been working late.", "high": "I'm exhausted from working so late every night - it's really draining and I feel completely worn out.", "contradictory": "Yeah, working late is just fantastic. Loving how tired I am."}}
-
-                Keywords: "meeting deadline project"
-                Emotion: happy
-                Output:
-                {{"low": "Met the deadline!", "medium": "We met the project deadline for the meeting!", "high": "We actually met the project deadline! I'm so excited for this meeting - everything came together perfectly!", "contradictory": "Oh yeah, we met the deadline. Not stressful at all."}}
-
-                Now build sentences using: {user_keywords}
-                Emotion: {emotional_state}
-
-                Output ONLY JSON:
-                """
-
-        url = f"{LAVA_BASE_URL}/forward?u=https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {LAVA_FORWARD_TOKEN}",
+        initial_state = {
+            "transcript": body.get("user_keywords", ""),
+            "emotion": body.get("emotional_state", "neutral"),
+            "confidence": 0.0,
+            "speaker_id": "USER",
+            "conversation_history": [],
+            "candidate_response": "",
+            "audio_url": "",
+            "conv_id": body.get("conv_id", ""),
+            "user_id": body.get("user_id", ""),
+            "personality_type": personality_type,
+            "personality_description": body.get("personality_description", ""),
+            "all_responses": {},
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, headers=headers, json={
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.35,
-                "max_tokens": 1000
-            })
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: conversation_graph.invoke(initial_state)
+        )
+        return result["all_responses"]
 
-            # Parse JSON response
-            try:
-                responses = json.loads(content)
-                return {
-                    "low": responses.get("low", "I understand."),
-                    "medium": responses.get("medium", "That makes sense."),
-                    "high": responses.get("high", "That sounds great!"),
-                    "contradictory": responses.get("contradictory", "Oh wonderful.")
-                }
-            except json.JSONDecodeError:
-                print(f"⚠️ JSON parsing failed, content: {content}")
-                print(f"📊 Keyword count was: {keyword_count}")
-                return {
-                    "low": "I understand.",
-                    "medium": "That makes sense.",
-                    "high": "That sounds great!",
-                    "contradictory": "Oh wonderful."
-                }
-            
-    except httpx.HTTPStatusError as e:
-        error_detail = f"Lava API error {e.response.status_code}: {e.response.text}"
-        print(f"❌ Generate responses error: {error_detail}")
-        raise HTTPException(status_code=500, detail=error_detail)
     except Exception as e:
         error_detail = f"Response generation failed: {str(e)}"
         print(f"❌ Generate responses error: {error_detail}")
