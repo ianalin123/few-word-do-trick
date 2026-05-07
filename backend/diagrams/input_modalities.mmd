@@ -1,0 +1,48 @@
+---
+config:
+  flowchart:
+    curve: basis
+    nodeSpacing: 40
+    rankSpacing: 60
+---
+graph TB
+    %% ===== DATA SOURCES (cylinders, cream/gold dashed) =====
+    Muse[(Muse2<br/>headset)]:::source
+    MBTIStore[(MBTI<br/>assessment)]:::source
+    Firestore[(Firestore<br/>message history)]:::source
+
+    %% ===== INPUT MODALITIES (stadiums, light purple) =====
+    EEG([EEG signal<br/><i>Live brainwaves<br/>sliding window</i>]):::modality
+    Personality([Personality profile<br/><i>MBTI-derived traits<br/>and style</i>]):::modality
+    Keyword([Keyword intent<br/><i>User-selected keyword<br/>from suggestions</i>]):::modality
+    Context([Conversational context<br/><i>Ongoing dialogue<br/>and turn history</i>]):::modality
+
+    %% ===== FUSION NODE =====
+    Fusion([Combined multimodal input<br/><i>Fused EEG + keyword +<br/>context + personality</i>]):::fusion
+
+    %% ===== HANDOFF =====
+    Agent[/→ Agent<br/>PERCEIVE → REASON → ACT/]:::handoff
+
+    %% ===== DATA SOURCE → MODALITY (dashed) =====
+    Muse -.->|raw EEG stream| EEG
+    MBTIStore -.->|loads profile| Personality
+    Firestore -.->|recent turns| Context
+
+    %% ===== MBTI FEEDBACK LOOP =====
+    Personality -.->|personalizes<br/>keywords| Keyword
+
+    %% ===== MODALITIES → FUSION =====
+    EEG --> Fusion
+    Personality --> Fusion
+    Keyword --> Fusion
+    Context --> Fusion
+
+    %% ===== FUSION → AGENT =====
+    Fusion --> Agent
+
+    %% ===== STYLES =====
+    classDef default fill:#f2f0ff,stroke:#6b5fc4,line-height:1.3
+    classDef modality fill:#f2f0ff,stroke:#6b5fc4,stroke-width:1.5px
+    classDef source fill:#fff7e6,stroke:#d4a017,stroke-width:1.5px,stroke-dasharray:5 5
+    classDef fusion fill:#bfb6fc,stroke:#4a3da3,stroke-width:2px,color:#1a1340
+    classDef handoff fill:#e8e3ff,stroke:#6b5fc4,stroke-width:1.5px,stroke-dasharray:3 3

@@ -1,0 +1,88 @@
+---
+config:
+  flowchart:
+    curve: basis
+---
+graph LR
+    %% ===== UPSTREAM INGEST (per partner utterance) =====
+    subgraph ingest [INGEST · partner audio → labeled message]
+        Mic([Partner microphone audio<br/><i>webm/opus blob from browser</i>]):::input
+        STT[Whisper STT<br/><i>OpenAI whisper-1 via Lava proxy</i>]:::process
+        Diarize[<b>Speaker diarization</b><br/><i>ffmpeg → 16kHz PCM<br/>20-MFCC fingerprint<br/>cosine sim vs per-conv cache<br/>threshold 0.85, running-avg update<br/>→ speaker_1 / speaker_2 / speaker_unknown</i>]:::diarize
+        Persist[Append message to Firestore<br/><i>text + diarized speaker label</i>]:::process
+
+        Mic --> STT
+        Mic --> Diarize
+        STT --> Persist
+        Diarize --> Persist
+    end
+
+    %% ===== INPUT SOURCES TO AGENT TURN =====
+    EEG([EEG signal<br/><i>Live brainwaves, sliding window<br/>from Muse 2</i>]):::input
+    Keyword([Keyword input<br/><i>User-selected keyword<br/>from suggestions</i>]):::input
+    Merge([Combined multimodal input<br/><i>EEG emotion + keyword + conv_id</i>]):::merge
+
+    EEG --> Merge
+    Keyword --> Merge
+
+    %% ===== LANGGRAPH STATEGRAPH =====
+    subgraph langgraph [<b>LangGraph StateGraph</b> · conversation_graph]
+        direction TB
+
+        subgraph perceive [PERCEIVE]
+            Classify[classify_emotion node<br/><i>Random Forest inference<br/>on live EEG sliding window<br/>→ emotion label + confidence</i>]:::process
+        end
+
+        subgraph reason [REASON]
+            Retrieve[retrieve_context node<br/><i><b>Naive top-N retrieval</b><br/>order_by timestamp DESC, limit 10<br/>NO partner/day/semantic filtering</i>]:::process
+            Generate[generate_response node<br/><i>GPT-4o-mini via Lava<br/>tool-calling loop, max 3 rounds<br/>emits 4 variants: low / medium /<br/>high / contradictory</i>]:::process
+            Tools[/<b>LangChain @tool registry</b><br/>get_recent_messages<br/>get_user_preferences<br/>get_current_time<br/>get_user_location<br/>get_weather<br/><i>convert_to_openai_tool → OpenAI schema</i>/]:::tools
+
+            Retrieve --> Generate
+            Generate <-.->|tool calls<br/>iterative| Tools
+        end
+
+        subgraph act [ACT]
+            Synth[synthesize_speech node<br/><i>placeholder; TTS triggered<br/>by user variant selection</i>]:::process
+        end
+
+        Classify --> Retrieve
+        Generate --> Synth
+    end
+
+    Merge --> Classify
+
+    %% ===== POST-GRAPH USER CHOICE + TTS =====
+    Select[User selection<br/><i>Picks 1 of 4 variants<br/>at chosen energy level</i>]:::process
+    Speech[ElevenLabs TTS<br/><i>/api/text-to-speech<br/>voice settings adapted to<br/>energy level + emotion</i>]:::process
+    Output([Spoken response<br/><i>Audio played to listener</i>]):::output
+
+    Synth --> Select
+    Select --> Speech
+    Speech --> Output
+
+    %% ===== EXTERNAL STORES =====
+    Firestore[(Firestore<br/>conversations / messages<br/><i>each message carries<br/>diarized speaker label</i>)]:::db
+    MBTI[(MBTI profile<br/>store)]:::db
+
+    Persist -.->|write| Firestore
+    Firestore -.->|read top-N by timestamp| Retrieve
+    Firestore -.->|read on demand| Tools
+    MBTI -.->|user preferences| Tools
+    MBTI -.->|personalizes<br/>keyword suggestions| Keyword
+
+    %% ===== STYLES =====
+    classDef default fill:#f2f0ff,stroke:#6b5fc4,line-height:1.3
+    classDef process fill:#f2f0ff,stroke:#6b5fc4,stroke-width:1.5px
+    classDef input fill:#e8e3ff,stroke:#6b5fc4,stroke-width:1.5px
+    classDef merge fill:#bfb6fc,stroke:#4a3da3,stroke-width:2px,color:#1a1340
+    classDef output fill:#bfb6fc,stroke:#4a3da3,stroke-width:2px,color:#1a1340
+    classDef tools fill:#fff7e6,stroke:#d4a017,stroke-width:1.5px,stroke-dasharray:5 5
+    classDef db fill:#fff7e6,stroke:#d4a017,stroke-width:1.5px
+    classDef diarize fill:#ffe6f0,stroke:#c2185b,stroke-width:2px,color:#3d0a1f
+
+    style ingest fill:#fff5fa,stroke:#c2185b,stroke-width:1.5px
+    style langgraph fill:#eef0ff,stroke:#3a2f9c,stroke-width:2.5px
+    style perceive fill:#faf9ff,stroke:#6b5fc4,stroke-width:1.5px
+    style reason fill:#faf9ff,stroke:#6b5fc4,stroke-width:1.5px
+    style act fill:#faf9ff,stroke:#6b5fc4,stroke-width:1.5px

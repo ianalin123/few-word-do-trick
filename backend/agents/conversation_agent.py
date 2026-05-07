@@ -1,16 +1,14 @@
 import json
 import os
-from datetime import datetime, timezone
-from typing import TypedDict, Optional, Any
+from datetime import datetime
+from typing import TypedDict, Any
 
 import httpx
 from langchain_core.tools import tool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.graph import StateGraph, END
 
-from models.firestore_models import EmotionData, MessageCreate
 from services.firestore_service import (
-    append_message,
     get_recent_messages as _fs_get_recent_messages,
 )
 
@@ -62,7 +60,75 @@ def get_user_preferences(user_id: str) -> dict:
     }
 
 
-_TOOLS = [get_recent_messages, get_user_preferences]
+@tool
+def get_current_time() -> str:
+    """Returns current date, day of week, and local time. Use when response depends on time-of-day or recency."""
+    print(f"[tool] get_current_time")
+    return datetime.now().strftime('%A, %B %d, %Y at %I:%M %p')
+
+
+@tool
+def get_user_location() -> dict:
+    """Returns the AAC user's current location. Use when geographic context shapes the response."""
+    print(f"[tool] get_user_location")
+    return {
+        "city": "Del Mar",
+        "state": "California",
+        "country": "USA",
+        "timezone": "America/Los_Angeles",
+    }
+
+
+_WMO_DESCRIPTIONS = [
+    (range(0, 1),    "clear"),
+    (range(1, 2),    "mainly clear"),
+    (range(2, 3),    "partly cloudy"),
+    (range(3, 4),    "overcast"),
+    (range(45, 49),  "fog"),
+    (range(51, 56),  "drizzle"),
+    (range(56, 58),  "freezing drizzle"),
+    (range(61, 66),  "rain"),
+    (range(66, 68),  "freezing rain"),
+    (range(71, 78),  "snow"),
+    (range(80, 83),  "rain showers"),
+    (range(85, 87),  "snow showers"),
+    (range(95, 96),  "thunderstorm"),
+    (range(96, 100), "thunderstorm with hail"),
+]
+
+
+def _wmo_to_description(code: int) -> str:
+    for span, label in _WMO_DESCRIPTIONS:
+        if code in span:
+            return label
+    return "unknown"
+
+
+@tool
+def get_weather(city: str = "Del Mar") -> dict:
+    """Returns current weather. Use when weather context could shape the response."""
+    print(f"[tool] get_weather city={city}")
+    try:
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            "?latitude=32.96&longitude=-117.27"
+            "&current=temperature_2m,weather_code,wind_speed_10m"
+            "&temperature_unit=fahrenheit&wind_speed_unit=mph"
+        )
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            data = resp.json()["current"]
+        return {
+            "temperature_f": data["temperature_2m"],
+            "description": _wmo_to_description(int(data["weather_code"])),
+            "wind_mph": data["wind_speed_10m"],
+        }
+    except Exception:
+        return {"error": "weather unavailable"}
+
+
+_TOOLS = [get_recent_messages, get_user_preferences, get_current_time, get_user_location, get_weather]
 _TOOLS_OAI = [convert_to_openai_tool(t) for t in _TOOLS]
 _TOOL_MAP = {t.name: t for t in _TOOLS}
 
@@ -185,6 +251,12 @@ IMPORTANT — use the available tools before generating:
 1. Call get_recent_messages to fetch the latest conversation turns and understand full context
 2. Call get_user_preferences to adapt vocabulary and style to this user{personality_context}
 
+You also have awareness tools — call them ONLY when the conversation actually calls for that context, not on every turn:
+- get_current_time: when the response depends on time-of-day, day-of-week, or recency (e.g. "is it late?", "what time is it?", "how long has it been?").
+- get_user_location: when geographic context shapes the response (e.g. talking about local places, distances, "around here").
+- get_weather: when weather could shape the response (e.g. "should I bring a jacket?", "is it raining?", planning outdoor activity).
+Skip these tools entirely when the topic is unrelated; redundant calls add latency.
+
 Then generate exactly 4 response variants as valid JSON with keys "low", "medium", "high", "contradictory".
 Output ONLY valid JSON — no preamble, no markdown fences.
 
@@ -231,28 +303,6 @@ Generate the 4 variants. Call tools first if you need more context."""
     return {**state, "all_responses": all_responses, "candidate_response": all_responses["medium"]}
 
 
-def persist_message_node(state: AgentState) -> AgentState:
-    print(f"[node] persist_message")
-    if not state.get("conv_id") or not state.get("candidate_response"):
-        return state
-    try:
-        emotion_data = None
-        if state.get("emotion") and state.get("confidence") is not None:
-            emotion_data = EmotionData(label=state["emotion"], confidence=state.get("confidence"))
-        append_message(
-            state["conv_id"],
-            MessageCreate(
-                speaker="USER",
-                text=state["candidate_response"],
-                timestamp=datetime.now(timezone.utc),
-                emotion=emotion_data,
-            ),
-        )
-    except Exception as e:
-        print(f"⚠️  persist_message failed: {e}")
-    return state
-
-
 def synthesize_speech_node(state: AgentState) -> AgentState:
     print(f"[node] synthesize_speech")
     # TTS is triggered by the user's energy-level selection in a separate /api/text-to-speech request.
@@ -269,14 +319,12 @@ def _build_graph():
     builder.add_node("classify_emotion", classify_emotion_node)
     builder.add_node("retrieve_context", retrieve_context_node)
     builder.add_node("generate_response", generate_response_node)
-    builder.add_node("persist_message", persist_message_node)
     builder.add_node("synthesize_speech", synthesize_speech_node)
 
     builder.set_entry_point("classify_emotion")
     builder.add_edge("classify_emotion", "retrieve_context")
     builder.add_edge("retrieve_context", "generate_response")
-    builder.add_edge("generate_response", "persist_message")
-    builder.add_edge("persist_message", "synthesize_speech")
+    builder.add_edge("generate_response", "synthesize_speech")
     builder.add_edge("synthesize_speech", END)
 
     return builder.compile()
