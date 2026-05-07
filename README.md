@@ -6,7 +6,7 @@ A real-time conversation assistant that uses AI to generate contextual responses
 
 - **Real-time Audio Recording**: Browser-based microphone recording with Web Audio API
 - **Speech-to-Text**: OpenAI Whisper integration via Lava Payments
-- **AI Response Generation**: GPT-3.5-turbo for generating contextual responses
+- **AI Response Generation**: GPT-4o-mini for generating contextual responses
 - **Text-to-Speech**: ElevenLabs integration with sentiment-based voice modulation
 - **Emotional State Integration**: EEG data visualization and processing
 - **Multi-sentiment Responses**: Generate calm, neutral, and excited response options
