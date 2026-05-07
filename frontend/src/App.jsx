@@ -73,6 +73,13 @@ function App() {
     return await convCreatePromiseRef.current
   }
 
+  const handleNewConversation = () => {
+    convIdRef.current = null
+    convCreatePromiseRef.current = null
+    setConvId(null)
+    setConversation([])
+  }
+
   // Subscribe to Firestore messages for the current conversation
   useEffect(() => {
     if (!convId) return
@@ -350,6 +357,13 @@ function App() {
         <div className="center-panel">
           {uiStep === 'input' && (
             <>
+              <button
+                onClick={handleNewConversation}
+                className="new-conversation-button"
+                title="Start a fresh conversation"
+              >
+                + New Conversation
+              </button>
               <ConversationDisplay conversation={conversation} />
               <KeywordInput
                 value={userKeywords}

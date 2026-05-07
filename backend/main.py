@@ -94,8 +94,6 @@ def predict_emotion(features):
     # Normalize 'sadness' to 'sad' for frontend
     emotion = 'sad' if emotion_label == 'sadness' else emotion_label
 
-    print(f"  [DEBUG] Raw prediction: {prediction} → {emotion_label} → {emotion}")
-
     return emotion, confidence
 
 # WebSocket connection manager for broadcasting emotions
@@ -424,11 +422,9 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             # Receive message from live_stream.py
             data = await websocket.receive_json()
-            print(f"📥 Received from EEG: {data.get('type')}")
 
             if data.get("type") == "predict":
                 features = data.get("features")
-                print(f"🔢 Features received: {len(features) if features else 0}")
 
                 if features and len(features) == 52:
                     try:
@@ -436,8 +432,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         emotion, confidence = predict_emotion(features)
 
                         if emotion:
-                            print(f"📊 {emotion.upper()} ({confidence:.0%}) → Broadcasting to {len(manager.active_connections)} frontend(s)")
-
                             # Send back to EEG stream
                             await websocket.send_json({
                                 "type": "prediction",

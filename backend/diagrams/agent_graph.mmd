@@ -13,11 +13,10 @@ graph TD
     subgraph reason [REASON]
         retrieve_context[retrieve_context]
         generate_response[generate_response]
-        Tools[/get_recent_messages<br/>get_user_preferences/]:::tools
+        Tools[/get_recent_messages<br/>get_user_preferences<br/>get_current_time<br/>get_user_location<br/>get_weather/]:::tools
     end
 
     subgraph act [ACT]
-        persist_message[persist_message]
         synthesize_speech[synthesize_speech]
     end
 
@@ -27,8 +26,7 @@ graph TD
     classify_emotion --> retrieve_context
     retrieve_context --> generate_response
     generate_response <-.->|tool calls| Tools
-    generate_response --> persist_message
-    persist_message --> synthesize_speech
+    generate_response --> synthesize_speech
     synthesize_speech --> Output
 
     classDef default fill:#f2f0ff,line-height:1.2,stroke:#6b5fc4
